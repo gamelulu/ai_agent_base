@@ -1,5 +1,7 @@
-from typing import Union, Dict
+from typing import Union, Dict, Any, Optional
+from pydantic import BaseModel
 from ai_enums import ImageProvider
+from .schemas import ModelKwargsType
 from .base import BaseImageStrategy
 from .openai_image import OpenAIImageStrategy
 from .grok_image import GrokImageStrategy
@@ -60,7 +62,14 @@ class ImageManager:
     }
 
     @classmethod
-    def create_image(cls, prompt: str, provider: Union[str, ImageProvider] = ImageProvider.OPENAI, model: str = None, level: int = 3, size: str = "1024x1024", **kwargs):
+    def create_image(
+        cls, 
+        prompt: str, 
+        provider: Union[str, ImageProvider] = ImageProvider.OPENAI, 
+        model: str = None, 
+        level: int = 3, 
+        options: Optional[Union[ModelKwargsType, Dict[str, Any]]] = None
+    ):
         """
         주어진 옵션으로 이미지를 생성하고 URL을 반환합니다.
         
@@ -69,8 +78,7 @@ class ImageManager:
             provider (Union[str, ImageProvider]): 주요 제공자 
             model (Union[str, ImageModel]): 강제로 지정할 특정 모델명
             level (int): 1~5 단계의 모델 수준 구분 (model 인자가 없을때 작동)
-            size (str): 해상도 (e.g. "1024x1024" (default))
-            kwargs: 각 모델별 전용(특수) 파라미터들 (style, negative_prompt 등)
+            options: 모델별 전용 옵션 DTO (우선 적용됨)
         """
         provider_val = provider.value if hasattr(provider, "value") else str(provider).lower()
         model_val = model.value if hasattr(model, "value") else str(model) if model else None
@@ -83,5 +91,5 @@ class ImageManager:
         # 2. 입력된 Model과 Provider 상성 1차 검증 (보안벽)
         strategy.validate(model_val)
         
-        # 3. 객체 및 렌더링 호출
-        return strategy.generate(prompt, model_val, level, size, **kwargs)
+        # 3. 객체 및 렌더링 호출 (DTO를 파이프라인의 맨 끝단까지 그대로 전달)
+        return strategy.generate(prompt, model_val, level, options=options)

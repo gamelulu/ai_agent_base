@@ -1,4 +1,7 @@
+from typing import Optional, Union, Dict, Any
+from pydantic import BaseModel
 from .base import BaseImageStrategy
+from .schemas import validate_model_kwargs, ImageModel, ModelKwargsType
 
 class OpenAIImageStrategy(BaseImageStrategy):
     # 1~5 레벨별 권장/기본 모델 명시적 매핑
@@ -14,7 +17,7 @@ class OpenAIImageStrategy(BaseImageStrategy):
         if model_val and "grok" in model_val:
             raise ValueError(f"OpenAI 제공자에 '{model_val}' 계열 모델을 사용/할당할 수 없습니다.")
 
-    def generate(self, prompt: str, model_val: str, level: int, size: str, **kwargs) -> str:
+    def generate(self, prompt: str, model_val: str, level: int, options: Optional[Union[ModelKwargsType, Dict[str, Any]]] = None) -> str:
         try:
             from openai import OpenAI
             client = OpenAI() # .env의 OPENAI_API_KEY 자동 매핑
@@ -23,7 +26,14 @@ class OpenAIImageStrategy(BaseImageStrategy):
 
         # 모델명 결정: 유저가 직접 값을 넣었다면 그 값, 아니면 레벨 맵핑에서 가져옴
         model_name = model_val if model_val else self.LEVEL_MAP.get(level, self.LEVEL_MAP[3])
+
+        kwargs = self.parse_options(options)
+        api_size = kwargs.get("size", "1024x1024")
         
+        # DALL-E 3 전용 옵션 검증
+        if model_name == "dall-e-3":
+            kwargs = validate_model_kwargs(ImageModel.OPENAI_DALLE3.value, kwargs)
+
         model_quality = kwargs.get("quality", None)
         style = kwargs.get("style", None)
 
@@ -34,7 +44,7 @@ class OpenAIImageStrategy(BaseImageStrategy):
                 model_quality = "standard"
 
         # 2. API 호출 기본 파라미터 구성
-        api_kwargs = {"model": model_name, "prompt": prompt, "n": 1, "size": size}
+        api_kwargs = {"model": model_name, "prompt": prompt, "n": 1, "size": api_size}
 
         # DALL-E 3 전용 옵션들 적용
         if model_name == "dall-e-3":

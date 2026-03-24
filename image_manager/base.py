@@ -1,3 +1,6 @@
+from typing import Optional, Union, Dict, Any
+from .schemas import ModelKwargsType
+
 class BaseImageStrategy:
     """이미지 생성 로직을 분리하는 전략 패턴 기본 클래스"""
     
@@ -12,6 +15,14 @@ class BaseImageStrategy:
     
     def validate(self, model_val: str):
         pass
+
+    def parse_options(self, options: Optional[Union[ModelKwargsType, Dict[str, Any]]]) -> dict:
+        from pydantic import BaseModel
+        if isinstance(options, BaseModel):
+            return options.model_dump(exclude_none=True)
+        elif isinstance(options, dict):
+            return options.copy()
+        return {}
         
-    def generate(self, prompt: str, model_val: str, level: int, size: str, **kwargs) -> str:
-        raise NotImplementedError("하위 클래스에서 generate 메서드를 구현해야 합니다.")
+    def generate(self, prompt: str, model_val: str, level: int, options: Optional[Union[ModelKwargsType, Dict[str, Any]]] = None) -> str:
+        raise NotImplementedError("하위 클래스에서 generate 메서문을 구현해야 합니다.")

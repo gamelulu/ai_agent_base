@@ -1,5 +1,7 @@
 import os
+from typing import Optional, Union, Dict, Any
 from .base import BaseImageStrategy
+from .schemas import validate_model_kwargs, ImageModel, ModelKwargsType
 
 class GrokImageStrategy(BaseImageStrategy):
     # 1~5 레벨별 권장/기본 모델 명시적 매핑
@@ -13,9 +15,9 @@ class GrokImageStrategy(BaseImageStrategy):
 
     def validate(self, model_val: str):
         if model_val and "dall-e" in model_val:
-            raise ValueError(f"xAI(Grok) 제공자에 '{model_val}' 계열 모델을 달 수 없습니다.")
+            raise ValueError(f"xAI(Grok) 제공자에 '{model_val}' 계열 모델을 사용/할당할 수 없습니다.")
 
-    def generate(self, prompt: str, model_val: str, level: int, size: str, **kwargs) -> str:
+    def generate(self, prompt: str, model_val: str, level: int, options: Optional[Union[ModelKwargsType, Dict[str, Any]]] = None) -> str:
         try:
             from openai import OpenAI
             # xAI API는 OpenAI 클라이언트 문법을 100% 호환 적용합니다.
@@ -29,17 +31,22 @@ class GrokImageStrategy(BaseImageStrategy):
         # 모델명 결정: 유저가 직접 값을 넣었다면 그 값, 아니면 레벨 맵핑에서 가져옴
         model_name = model_val if model_val else self.LEVEL_MAP.get(level, self.LEVEL_MAP[3])
         
-        # Grok API 역시 OpenAI SDK를 사용하므로 호환되는 확장 옵션(디테일 등) 자동 활성화
-        model_quality = kwargs.get("quality", None)
+        kwargs = self.parse_options(options)
+        api_size = kwargs.get("size", "1024x1024")
+        
+        kwargs = validate_model_kwargs(ImageModel.GROK_IMAGINE_IMAGE.value, kwargs)
+
+        # Grok API 해상도 제어 등 옵션 설정
+        resolution = kwargs.get("resolution", None)
         if not model_val:
-            if level >= 5 and model_quality is None:
-                model_quality = "hd"
-            elif model_quality is None:
-                model_quality = "standard"
+            if level >= 5 and resolution is None:
+                resolution = "high"
+            elif resolution is None:
+                resolution = "medium"
         
         # API 호출 기본 파라미터 구성
-        api_kwargs = {"model": model_name, "prompt": prompt, "n": 1, "size": size}
-        if model_quality: api_kwargs["quality"] = model_quality
+        api_kwargs = {"model": model_name, "prompt": prompt, "n": kwargs.get("n", 1), "size": api_size}
+        if resolution: api_kwargs["resolution"] = resolution
         
         try:
             response = client.images.generate(**api_kwargs)

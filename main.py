@@ -8,6 +8,7 @@ from state import GraphState
 from wrappers import handle_input, handle_chat, handle_image
 from llm_manager import LLMManager
 from image_manager import ImageManager
+from image_manager.schemas import OpenAIDalle3Kwargs
 from ai_enums import LLMProvider, LLMModel, ImageProvider
 
 load_dotenv()
@@ -55,13 +56,16 @@ def drawing_node(messages):
     last_text = messages[-1].content
     print(f"[시스템] AI 화가가 '{last_text}' (을)를 기반으로 실제 그림을 그리는 중입니다...")
     
-    # ImageManager를 호출하여 최고 수준 모델 사용 예시 작성
+    # ImageManager에 DTO 모델(OpenAIDalle3Kwargs)을 직접 전달하여 파라미터 타입 안정성 부여 예시
     image_url = ImageManager.create_image(
         prompt=last_text,
         provider=ImageProvider.OPENAI,
         level=5,
-        size="1024x1024",
-        style="vivid"
+        options=OpenAIDalle3Kwargs(
+            size="1024x1024",
+            style="vivid",
+            quality="hd"
+        )
     )
     
     return image_url
