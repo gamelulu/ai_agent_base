@@ -7,6 +7,8 @@ from langgraph.graph import StateGraph, START, END
 from state import GraphState
 from wrappers import handle_input, handle_chat, handle_image
 from llm_manager import LLMManager
+from image_manager import ImageManager
+from ai_enums import LLMProvider, LLMModel, ImageProvider
 
 load_dotenv()
 
@@ -15,7 +17,7 @@ load_dotenv()
 # [앱 초기화(Configuration) 부분]
 # =======================================================================
 # 앱 전반적으로 깔려있을 "디폴트 기본 모델"을 하나 할당합니다 (비용이 싼 모델 권장)
-LLMManager.configure(provider="openai", model="gpt-3.5-turbo", temperature=0)
+LLMManager.configure(provider=LLMProvider.OPENAI, model=LLMModel.GPT_3_5_TURBO, temperature=0)
 
 
 # =======================================================================
@@ -31,12 +33,12 @@ def dictation_node():
 
 @handle_chat
 def chatbot_node(messages):
-    """가벼운 대화를 쳐내는 기본 비서 노드 (빠른 gpt-3.5-turbo 할당됨)"""
+    """가벼운 대화를 쳐내는 기본 비서 노드 (빠른 디폴트 할당됨)"""
     return messages
 
 
 # 이 부분이 핵심! 이 노드에만 고급 모델을 덮어씌워서 실행시킵니다.
-@handle_chat(model="gpt-4o", temperature=0.8)
+@handle_chat(provider=LLMProvider.OPENAI, model=LLMModel.GPT_4O, temperature=0.8)
 def creative_writer_node(messages):
     """
     창의적인 글을 작성하는 전문가 노드.
@@ -49,26 +51,20 @@ def creative_writer_node(messages):
 
 @handle_image
 def drawing_node(messages):
-    """이미지 렌더링 로직 (실제 DALL-E 3 연동 또는 대체 이미지)"""
+    """이미지 렌더링 로직 (ImageManager 활용)"""
     last_text = messages[-1].content
     print(f"[시스템] AI 화가가 '{last_text}' (을)를 기반으로 실제 그림을 그리는 중입니다...")
     
-    try:
-        # LangChain 설치 시 함께 설치된 openai 공식 패키지 활용
-        from openai import OpenAI
-        client = OpenAI() # .env의 OPENAI_API_KEY를 자동 활용
-        
-        response = client.images.generate(
-            model="dall-e-3",
-            prompt=last_text,
-            n=1,
-            size="1024x1024"
-        )
-        return response.data[0].url
-    except Exception as e:
-        print(f"\n[시스템] OpenAI 이미지 생성 에러 ➔ 임시 샘플 이미지로 대체합니다 ({e})\n")
-        # 에러(권한 부족, 잔액 부족 등)가 나더라도 이미지가 엑박이 뜨지 않도록 실제 존재하는 랜덤 이미지 URL 반환
-        return "https://picsum.photos/800/600"
+    # ImageManager를 호출하여 최고 수준 모델 사용 예시 작성
+    image_url = ImageManager.create_image(
+        prompt=last_text,
+        provider=ImageProvider.OPENAI,
+        level=5,
+        size="1024x1024",
+        style="vivid"
+    )
+    
+    return image_url
 
 # =======================================================================
 

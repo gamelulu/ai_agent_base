@@ -1,8 +1,11 @@
 import inspect
 from functools import wraps
+from typing import Union
+
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from state import GraphState
 from llm_manager import LLMManager
+from ai_enums import LLMProvider, LLMModel
 
 def _get_user_kwargs(func, state: GraphState):
     sig = inspect.signature(func)
@@ -16,8 +19,8 @@ def _get_user_kwargs(func, state: GraphState):
 def _resolve_llm(provider, model, temperature):
     if provider or model or temperature is not None:
         return LLMManager.create_llm(
-            provider=provider or "openai",
-            model=model or "gpt-3.5-turbo",
+            provider=provider or LLMProvider.OPENAI,
+            model=model or LLMModel.GPT_3_5_TURBO,
             temperature=temperature if temperature is not None else 0
         )
     return LLMManager.get_llm()
@@ -42,7 +45,7 @@ def handle_input(func):
     return wrapper
 
 
-def handle_chat(func=None, *, provider=None, model=None, temperature=None, stream=True):
+def handle_chat(func=None, *, provider: Union[str, LLMProvider] = None, model: Union[str, LLMModel] = None, temperature=None, stream=True):
     """
     일반 LLM 챗봇 전담 래퍼.
     스트리밍(stream)이 기본적으로 켜져 있어 글자가 타이핑되듯 출력됩니다!
@@ -56,6 +59,7 @@ def handle_chat(func=None, *, provider=None, model=None, temperature=None, strea
     def wrapper(state: GraphState):
         kwargs = _get_user_kwargs(func, state)
         processed_data = func(**kwargs) if kwargs else func()
+
         
         llm = _resolve_llm(provider, model, temperature)
         used_model = getattr(llm, "model_name", getattr(llm, "model", "default"))
